@@ -1,0 +1,13 @@
+To run Mibench on simplescalar
+1. Edit Makefile in each benchmark program
+change compiler from "gcc" to "/home/username/simplescalar/sslittle-na-sstrix/bin/gcc".
+
+change any "ar" (if exists) to "home/username/simplescalar/sslittle-na-sstrix/bin/ar", same for "ranlib".
+
+2. Run "make"
+
+3. edit runme_large.sh/runme_small.sh
+
+use /home/sechw/simplescalar/simplesim-3.0/sim-outorder or sim-safe to run
+
+4. Run "bash runme_large.sh/runme_small.sh" 
