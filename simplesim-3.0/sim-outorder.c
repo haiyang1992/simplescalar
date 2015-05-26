@@ -117,6 +117,13 @@ static char *pred_type;
 static int bimod_nelt = 1;
 static int bimod_config[1] =
   { /* bimod tbl size */2048 };
+  
+/* 3 bit branch predictor */
+/* 3 bit predictor config (<table_size>) */
+static int threebit_nelt = 1;
+static int threebit_config[1] = 
+	{/* threebit table size */ 2048};
+/* end of modification	*/
 
 /* 2-level predictor config (<l1size> <l2size> <hist_size> <xor>) */
 static int twolev_nelt = 4;
@@ -659,6 +666,14 @@ sim_reg_options(struct opt_odb_t *odb)
 		   bimod_config, bimod_nelt, &bimod_nelt,
 		   /* default */bimod_config,
 		   /* print */TRUE, /* format */NULL, /* !accrue */FALSE);
+		   
+  /* 3 bit branch predictor */
+  opt_reg_int_list(odb, "-bpred:threebit",
+		   "three bit predictor config (<table size>)",
+		   threebit_config, threebit_nelt, &threebit_nelt,
+		   /* default */threebit_config,
+		   /* print */TRUE, /* format */NULL, /* !accrue */FALSE);
+  /* end of modification	*/
 
   opt_reg_int_list(odb, "-bpred:2lev",
                    "2-level predictor config "
@@ -903,12 +918,12 @@ sim_check_options(struct opt_odb_t *odb,        /* options database */
   else if (!mystricmp(pred_type, "taken"))
     {
       /* static predictor, not taken */
-      pred = bpred_create(BPredTaken, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+      pred = bpred_create(BPredTaken, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     }
   else if (!mystricmp(pred_type, "nottaken"))
     {
       /* static predictor, taken */
-      pred = bpred_create(BPredNotTaken, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+      pred = bpred_create(BPredNotTaken, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     }
   else if (!mystricmp(pred_type, "bimod"))
     {
@@ -921,6 +936,7 @@ sim_check_options(struct opt_odb_t *odb,        /* options database */
       /* bimodal predictor, bpred_create() checks BTB_SIZE */
       pred = bpred_create(BPred2bit,
 			  /* bimod table size */bimod_config[0],
+			  /* threebit table size */0,
 			  /* 2lev l1 size */0,
 			  /* 2lev l2 size */0,
 			  /* meta table size */0,
@@ -930,6 +946,30 @@ sim_check_options(struct opt_odb_t *odb,        /* options database */
 			  /* btb assoc */btb_config[1],
 			  /* ret-addr stack size */ras_size);
     }
+	
+  /* 3 bit branch predictor */
+  else if (!mystricmp(pred_type, "threebit"))
+    {
+      if (threebit_nelt != 1)
+	fatal("bad three bit predictor config (<table_size>)");
+      if (btb_nelt != 2)
+	fatal("bad btb config (<num_sets> <associativity>)");
+
+      /* three bit predictor, bpred_create() checks BTB_SIZE */
+      pred = bpred_create(BPred3bit,
+			  /* bimod table size */ 0, 
+			  /* threebit table size */threebit_config[0],
+			  /* 2lev l1 size */0,
+			  /* 2lev l2 size */0,
+			  /* meta table size */0,
+			  /* history reg size */0,
+			  /* history xor address */0,
+			  /* btb sets */btb_config[0],
+			  /* btb assoc */btb_config[1],
+			  /* ret-addr stack size */ras_size);
+    }
+  /* end of modification	*/
+  
   else if (!mystricmp(pred_type, "2lev"))
     {
       /* 2-level adaptive predictor, bpred_create() checks args */
@@ -940,6 +980,7 @@ sim_check_options(struct opt_odb_t *odb,        /* options database */
 
       pred = bpred_create(BPred2Level,
 			  /* bimod table size */0,
+			  /* threebit table size */0,
 			  /* 2lev l1 size */twolev_config[0],
 			  /* 2lev l2 size */twolev_config[1],
 			  /* meta table size */0,
@@ -963,6 +1004,7 @@ sim_check_options(struct opt_odb_t *odb,        /* options database */
 
       pred = bpred_create(BPredComb,
 			  /* bimod table size */bimod_config[0],
+			  /* threebit table size */0,
 			  /* l1 size */twolev_config[0],
 			  /* l2 size */twolev_config[1],
 			  /* meta table size */comb_config[0],

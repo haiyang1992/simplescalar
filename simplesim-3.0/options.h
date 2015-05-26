@@ -137,6 +137,11 @@ struct opt_odb_t {
   orphan_fn_t orphan_fn;	/* user-specified orphan parser */
   char *header;			/* options header */
   struct opt_note_t *notes;	/* option notes */
+  
+  /* 3 bit branch predictor */
+  int br_threebit;
+  /* end of modification	*/
+  
 };
 
 /* create a new option database */

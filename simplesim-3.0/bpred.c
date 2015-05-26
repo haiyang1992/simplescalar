@@ -66,6 +66,11 @@
 struct bpred_t *			/* branch predictory instance */
 bpred_create(enum bpred_class class,	/* type of predictor to create */
 	     unsigned int bimod_size,	/* bimod table size */
+		 
+		 /* 3 bit branch predictor */
+		 unsigned int threebit_size,	/*	three bit table size */
+		 /*	end of modification	*/
+		 
 	     unsigned int l1size,	/* 2lev l1 table size */
 	     unsigned int l2size,	/* 2lev l2 table size */
 	     unsigned int meta_size,	/* meta table size */
@@ -107,6 +112,13 @@ bpred_create(enum bpred_class class,	/* type of predictor to create */
   case BPred2bit:
     pred->dirpred.bimod = 
       bpred_dir_create(class, bimod_size, 0, 0, 0);
+	break;
+	/* 3 bit branch predictor */
+  case BPred3bit:
+	pred->dirpred.threebit = 
+	  bpred_dir_create(class, threebit_size, 0, 0, 0);
+	break;
+	/*	end of modification	*/
 
   case BPredTaken:
   case BPredNotTaken:
@@ -122,6 +134,11 @@ bpred_create(enum bpred_class class,	/* type of predictor to create */
   case BPredComb:
   case BPred2Level:
   case BPred2bit:
+  
+  /* 3 bit branch predictor */
+  case BPred3bit:
+  /*	end of modification	*/
+  
     {
       int i;
 
@@ -250,6 +267,26 @@ bpred_dir_create (
       }
 
     break;
+	
+  /* 3 bit branch predictor */
+  case BPred3bit:
+	if (!l1size || (l1size & (l1size-1)) != 0)
+      fatal("3bit table size, `%d', must be non-zero and a power of two", 
+	    l1size);
+    pred_dir->config.threebit.size = l1size;
+    if (!(pred_dir->config.threebit.table =
+	  calloc(l1size, sizeof(unsigned char))))
+      fatal("cannot allocate 3-bit storage");
+    /* initialize counters to 011 or 100 */
+    flipflop = 3;
+    for (cnt = 0; cnt < l1size; cnt++)
+      {
+	pred_dir->config.threebit.table[cnt] = flipflop;
+	flipflop = 7 - flipflop;
+      }
+	
+	break;
+  /*	end of modification	*/
 
   case BPredTaken:
   case BPredNotTaken:
@@ -283,6 +320,13 @@ bpred_dir_config(
       name, pred_dir->config.bimod.size);
     break;
 
+  /* 3 bit branch predictor */
+  case BPred3bit:
+	fprintf(stream, "pred_dir: %s: three-bit: %d entries, direct-mapped\n",
+	  name, pred_dir->config.threebit.size) ;
+	break;
+  /*	end of modification	*/
+  
   case BPredTaken:
     fprintf(stream, "pred_dir: %s: predict taken\n", name);
     break;
@@ -324,7 +368,16 @@ bpred_config(struct bpred_t *pred,	/* branch predictor instance */
 	    pred->btb.sets, pred->btb.assoc);
     fprintf(stream, "ret_stack: %d entries", pred->retstack.size);
     break;
-
+  
+  /* 3 bit branch predictor */
+  case BPred3bit:
+	bpred_dir_config (pred->dirpred.threebit, "threebit", stream) ;
+	fprintf(stream, "btb: %d sets x %d associativity",
+		pred->btb.sets, pred->btb.assoc) ;
+	fprintf(stream, "ret_stack: %d entries", pred->retstack.size);
+	break;
+  /* end of modification	*/
+  
   case BPredTaken:
     bpred_dir_config (pred->dirpred.bimod, "taken", stream);
     break;
@@ -367,6 +420,13 @@ bpred_reg_stats(struct bpred_t *pred,	/* branch predictor instance */
     case BPred2bit:
       name = "bpred_bimod";
       break;
+	
+	/* 3 bit branch predictor */
+	case BPred3bit:
+	  name = "bpred_threebit";
+	  break;
+	/*	end of modification	*/
+	
     case BPredTaken:
       name = "bpred_taken";
       break;
@@ -474,6 +534,11 @@ bpred_after_priming(struct bpred_t *bpred)
   bpred->dir_hits = 0;
   bpred->used_ras = 0;
   bpred->used_bimod = 0;
+  
+  /* 3 bit branch predictor */
+  bpred->used_threebit = 0;
+  /* end of modification	*/
+  
   bpred->used_2lev = 0;
   bpred->jr_hits = 0;
   bpred->jr_seen = 0;
@@ -486,6 +551,11 @@ bpred_after_priming(struct bpred_t *bpred)
 #define BIMOD_HASH(PRED, ADDR)						\
   ((((ADDR) >> 19) ^ ((ADDR) >> MD_BR_SHIFT)) & ((PRED)->config.bimod.size-1))
     /* was: ((baddr >> 16) ^ baddr) & (pred->dirpred.bimod.size-1) */
+	
+/* 3 bit branch predictor */
+#define THREEBIT_HASH(PRED, ADDR)						\
+  ((((ADDR) >> 19) ^ ((ADDR) >> MD_BR_SHIFT)) & ((PRED)->config.threebit.size-1))
+/* end of modification	*/
 
 /* predicts a branch direction */
 char *						/* pointer to counter */
@@ -533,7 +603,15 @@ bpred_dir_lookup(struct bpred_dir_t *pred_dir,	/* branch dir predictor inst */
     case BPred2bit:
       p = &pred_dir->config.bimod.table[BIMOD_HASH(pred_dir, baddr)];
       break;
-    case BPredTaken:
+	
+	/* 3 bit branch predictor */
+	case BPred3bit:
+	//fprintf(stderr, "right before visiting hash\n");
+	  p = &pred_dir->config.threebit.table[THREEBIT_HASH(pred_dir, baddr)];
+	  break;
+	/* end of modification	*/
+    
+	case BPredTaken:
     case BPredNotTaken:
       break;
     default:
@@ -616,7 +694,19 @@ bpred_lookup(struct bpred_t *pred,	/* branch predictor instance */
 	    bpred_dir_lookup (pred->dirpred.bimod, baddr);
 	}
       break;
-    case BPredTaken:
+	
+	/* 3 bit branch predictor */
+	case BPred3bit:
+	  if ((MD_OP_FLAGS(op) & (F_CTRL|F_UNCOND)) != (F_CTRL|F_UNCOND))
+	{
+		//fprintf(stderr, "right before lookup\n");
+	  dir_update_ptr->pdir1 = 
+		bpred_dir_lookup (pred->dirpred.threebit, baddr);
+	}
+	break;
+	/*	end of modification	*/
+    
+	case BPredTaken:
       return btarget;
     case BPredNotTaken:
       if ((MD_OP_FLAGS(op) & (F_CTRL|F_UNCOND)) != (F_CTRL|F_UNCOND))
@@ -699,21 +789,60 @@ bpred_lookup(struct bpred_t *pred,	/* branch predictor instance */
       return (pbtb ? pbtb->target : 1);
     }
 
+	
+	/* 3 bit branch predictor */
+	/* comment out the next section */
   /* otherwise we have a conditional branch */
-  if (pbtb == NULL)
-    {
+  //if (pbtb == NULL)
+    //{
       /* BTB miss -- just return a predicted direction */
-      return ((*(dir_update_ptr->pdir1) >= 2)
-	      ? /* taken */ 1
-	      : /* not taken */ 0);
-    }
-  else
-    {
+      //return ((*(dir_update_ptr->pdir1) >= 2)
+	    //  ? /* taken */ 1
+	      //: /* not taken */ 0);
+    //}
+  //else
+    //{
       /* BTB hit, so return target if it's a predicted-taken branch */
-      return ((*(dir_update_ptr->pdir1) >= 2)
-	      ? /* taken */ pbtb->target
-	      : /* not taken */ 0);
-    }
+      //return ((*(dir_update_ptr->pdir1) >= 2)
+	    //  ? /* taken */ pbtb->target
+	      //: /* not taken */ 0);
+    //}
+	
+	if (pbtb == NULL)
+	{
+		if (pred->class != BPred3bit)
+		{
+			/* BTB miss -- just return a predicted direction */
+			return ((*(dir_update_ptr->pdir1) >= 2)
+			? /* taken */ 1
+			: /* not taken */ 0);
+		}
+		else
+		{
+			return ((*(dir_update_ptr->pdir1) >= 4)
+			? /* taken */ 1
+			: /* not taken */ 0);	
+		}
+	}
+	else
+	{
+		if (pred->class != BPred3bit)
+		{
+			/* BTB hit, so return target if it's a predicted-taken branch */
+			return ((*(dir_update_ptr->pdir1) >= 2)
+			? /* taken */ pbtb->target
+			: /* not taken */ 0);	
+		}
+		else
+		{
+			/* BTB hit, so return target if it's a predicted-taken branch */
+			return ((*(dir_update_ptr->pdir1) >= 4)
+			? /* taken */ pbtb->target
+			: /* not taken */ 0);	
+		}
+	}
+	
+	/*	end of modification	*/
 }
 
 /* Speculative execution can corrupt the ret-addr stack.  So for each
@@ -780,7 +909,14 @@ bpred_update(struct bpred_t *pred,	/* branch predictor instance */
       if (dir_update_ptr->dir.meta)
 	pred->used_2lev++;
       else
-	pred->used_bimod++;
+		  
+	/* 3 bit branch predictor */
+		{
+			pred->used_threebit++;
+			pred->used_bimod++;
+		}
+	/*	end of modification	*/
+	
     }
 
   /* keep stats about JR's; also, but don't change any bpred state for JR's
@@ -911,21 +1047,40 @@ bpred_update(struct bpred_t *pred,	/* branch predictor instance */
    * matched-on entry or a victim which was LRU in its set)
    */
 
+  /* 3 bit branch predictor */
   /* update state (but not for jumps) */
   if (dir_update_ptr->pdir1)
     {
-      if (taken)
-	{
-	  if (*dir_update_ptr->pdir1 < 3)
-	    ++*dir_update_ptr->pdir1;
+		if (pred->class != BPred3bit)
+		{
+			if (taken)
+			{
+				if (*dir_update_ptr->pdir1 < 3)
+				++*dir_update_ptr->pdir1;
+			}
+			else
+			{ /* not taken */
+				if (*dir_update_ptr->pdir1 > 0)
+				--*dir_update_ptr->pdir1;
+			}
+		}
+		else
+		{
+			if (taken)
+			{
+				if (*dir_update_ptr->pdir1 < 7)
+				++*dir_update_ptr->pdir1;
+			}
+			else
+			{ /* not taken */
+				if (*dir_update_ptr->pdir1 > 0)
+				--*dir_update_ptr->pdir1;
+			}
+		}
 	}
-      else
-	{ /* not taken */
-	  if (*dir_update_ptr->pdir1 > 0)
-	    --*dir_update_ptr->pdir1;
-	}
-    }
-
+      
+ /*	end of modification	*/
+  
   /* combining predictor also updates second predictor and meta predictor */
   /* second direction predictor */
   if (dir_update_ptr->pdir2)

@@ -102,6 +102,11 @@ enum bpred_class {
   BPredComb,                    /* combined predictor (McFarling) */
   BPred2Level,			/* 2-level correlating pred w/2-bit counters */
   BPred2bit,			/* 2-bit saturating cntr pred (dir mapped) */
+  
+  /* 3 bit branch predictor */
+  BPred3bit,			/* 3-bit saturating cntr pred (dir mapped)	*/
+  /* end of modification	*/
+  
   BPredTaken,			/* static predict taken */
   BPredNotTaken,		/* static predict not taken */
   BPred_NUM
@@ -131,6 +136,14 @@ struct bpred_dir_t {
       int *shiftregs;		/* level-1 history table */
       unsigned char *l2table;	/* level-2 prediction state table */
     } two;
+	
+	/* 3 bit branch predictor */
+	struct {
+		unsigned int size;	/* numbers of entries in direct-mapped table */
+		unsigned char *table;	/* prediction state table */
+	} threebit;
+	/* end of modification	*/
+	
   } config;
 };
 
@@ -141,6 +154,11 @@ struct bpred_t {
     struct bpred_dir_t *bimod;	  /* first direction predictor */
     struct bpred_dir_t *twolev;	  /* second direction predictor */
     struct bpred_dir_t *meta;	  /* meta predictor */
+	
+	/* 3 bit branch predictor */
+	struct bpred_dir_t *threebit; /* three-bit predictor */
+	/* end of modification	*/
+	
   } dirpred;
 
   struct {
@@ -160,6 +178,11 @@ struct bpred_t {
   counter_t dir_hits;		/* num correct dir-predictions (incl addr) */
   counter_t used_ras;		/* num RAS predictions used */
   counter_t used_bimod;		/* num bimodal predictions used (BPredComb) */
+  
+  /* 3 bit branch predictor */
+  counter_t used_threebit;   /* num three-bit predictions used (BPredComb) */
+  /* end of modification	*/
+  
   counter_t used_2lev;		/* num 2-level predictions used (BPredComb) */
   counter_t jr_hits;		/* num correct addr-predictions for JR's */
   counter_t jr_seen;		/* num JR's seen */
@@ -183,6 +206,11 @@ struct bpred_update_t {
     unsigned int bimod  : 1;    /* bimodal predictor */
     unsigned int twolev : 1;    /* 2-level predictor */
     unsigned int meta   : 1;    /* meta predictor (0..bimod / 1..2lev) */
+	
+	/* 3 bit branch predictor */
+	unsigned int threebit : 1; /* three bit predictor */
+	/*	end of modification	*/
+  
   } dir;
 };
 
@@ -190,7 +218,12 @@ struct bpred_update_t {
 struct bpred_t *			/* branch predictory instance */
 bpred_create(enum bpred_class class,	/* type of predictor to create */
 	     unsigned int bimod_size,	/* bimod table size */
-	     unsigned int l1size,	/* level-1 table size */
+		 
+		 /* 3 bit branch predictor */
+		 unsigned int threebit_size, /* threemod table size */
+		 /*	end of modification	*/
+	     
+		 unsigned int l1size,	/* level-1 table size */
 	     unsigned int l2size,	/* level-2 table size */
 	     unsigned int meta_size,	/* meta predictor table size */
 	     unsigned int shift_width,	/* history register width */

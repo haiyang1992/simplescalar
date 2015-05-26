@@ -286,7 +286,20 @@ main(int argc, char **argv, char **envp)
 #endif
 
   /* FIXME: add stats intervals and max insts... */
-
+  
+  /* 3 bit branch predictor */
+  int n_threebit;
+  sim_odb->br_threebit = 0;
+  for (n_threebit = 1; n_threebit < argc; n_threebit++)
+  {
+      if (!strcmp(argv[n_threebit], "-bpred:threebit"))
+      {
+          sim_odb->br_threebit = 1;
+          break;
+      }
+  }
+  /* end of modification	*/
+  
   /* register all simulator-specific options */
   sim_reg_options(sim_odb);
 
