@@ -127,6 +127,7 @@ struct bpred_dir_t {
     struct {
       unsigned int size;	/* number of entries in direct-mapped table */
       unsigned char *table;	/* prediction state table */
+	  md_addr_t bhr;
     } bimod;
     struct {
       int l1size;		/* level-1 size, number of history regs */

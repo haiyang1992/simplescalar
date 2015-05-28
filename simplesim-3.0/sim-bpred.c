@@ -588,7 +588,6 @@ sim_main(void)
 		  /* no predicted taken target, attempt not taken target */
 		  pred_PC = regs.regs_PC + sizeof(md_inst_t);
 		}
-		//fprintf(stderr, "break point two\n");
 	      bpred_update(pred,
 			   /* branch addr */regs.regs_PC,
 			   /* resolved branch target */regs.regs_NPC,
